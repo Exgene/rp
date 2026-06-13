@@ -15,6 +15,14 @@ const (
 	groupUncaptured tokenType = iota
 )
 
+func (r repeatPayload) isStar() bool {
+	return r.max == -1 && r.min == 0
+}
+
+func (r repeatPayload) isPlus() bool {
+	return r.max == -1 && r.min == 1
+}
+
 type token struct {
 	tokenType tokenType
 	value     any

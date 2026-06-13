@@ -18,9 +18,11 @@ func parse(regex string) *tokenCtx {
 
 func main() {
 	//txt := "a|b[a-z]*"
-	txt := "(a|b)[a-z]+"
+	txt := "(ab)|[a-z]+"
 	fmt.Printf("Input is %v\n", txt)
 	ctx := parse(txt)
+	nfa := Parse(ctx.tokens)
+	nfa.Print()
 
 	PrintTokens(ctx.tokens)
 }
