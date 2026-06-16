@@ -86,7 +86,7 @@ func (s *state) Print() {
 
 func (nfa NFA) Print() {
 	// map / set to prevent recursive infinite printing
-	id := map[*state]bool{}
+	id := map[*state]bool{nfa.start: true}
 	queue := []*state{nfa.start}
 	fmt.Print("NFA main obj start and end =>\n")
 	nfa.start.Print()
@@ -124,11 +124,24 @@ func handleTok(tok *token, nfa *NFA) {
 	// build NFA for the given token
 	switch tok.tokenType {
 	case bracket:
-		panic("not implemented")
-	case group:
-		panic("not implemented")
-	case groupUncaptured:
-		panic("not implemented")
+		// you don't need ok because map only iterates over truthy values...
+		// for ch, ok := range Not required
+		for ch := range tok.value.(map[uint8]bool) {
+			nfa.start.transitions = append(nfa.start.transitions, &transition{
+				edge:  string(ch),
+				state: nfa.end,
+			})
+		}
+	case group, groupUncaptured:
+		inner := Parse(tok.value.([]token))
+		nfa.start.transitions = append(nfa.start.transitions, &transition{
+			edge:  "eps",
+			state: inner.start,
+		})
+		inner.end.transitions = append(inner.end.transitions, &transition{
+			edge:  "eps",
+			state: nfa.end,
+		})
 	case literal:
 		nfa.start.transitions = append(nfa.start.transitions, &transition{
 			edge:  tok.value.(string),
