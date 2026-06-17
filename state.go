@@ -12,6 +12,8 @@ func Next() uint16 {
 	return c
 }
 
+const EPS = "eps"
+
 // Transition object from A => B, It will have the edge value
 // as well as the next transition state.
 // This allows for A ==> B and A ==> C to be represented.
@@ -51,7 +53,7 @@ func (nfa *NFA) Build() {
 // epsillon connection between the two
 func (left *NFA) Link(right *NFA) {
 	left.end.transitions = append(left.end.transitions, &transition{
-		edge:  "eps",
+		edge:  EPS,
 		state: right.start,
 	})
 	left.end = right.end
@@ -135,11 +137,11 @@ func handleTok(tok *token, nfa *NFA) {
 	case group, groupUncaptured:
 		inner := Parse(tok.value.([]token))
 		nfa.start.transitions = append(nfa.start.transitions, &transition{
-			edge:  "eps",
+			edge:  EPS,
 			state: inner.start,
 		})
 		inner.end.transitions = append(inner.end.transitions, &transition{
-			edge:  "eps",
+			edge:  EPS,
 			state: nfa.end,
 		})
 	case literal:
@@ -153,19 +155,19 @@ func handleTok(tok *token, nfa *NFA) {
 		leftNFA := Parse([]token{left})
 		rightNFA := Parse([]token{right})
 		nfa.start.transitions = append(nfa.start.transitions, &transition{
-			edge:  "eps",
+			edge:  EPS,
 			state: leftNFA.start,
 		})
 		nfa.start.transitions = append(nfa.start.transitions, &transition{
-			edge:  "eps",
+			edge:  EPS,
 			state: rightNFA.start,
 		})
 		leftNFA.end.transitions = append(leftNFA.end.transitions, &transition{
-			edge:  "eps",
+			edge:  EPS,
 			state: nfa.end,
 		})
 		rightNFA.end.transitions = append(rightNFA.end.transitions, &transition{
-			edge:  "eps",
+			edge:  EPS,
 			state: nfa.end,
 		})
 	case repeat:
@@ -191,12 +193,12 @@ func populateCurlyRepeatWithNFA(nfa *NFA, payload *repeatPayload) {
 		inner := Parse([]token{payload.token})
 		if prev == nil {
 			nfa.start.transitions = append(nfa.start.transitions, &transition{
-				edge:  "eps",
+				edge:  EPS,
 				state: inner.start,
 			})
 		} else {
 			prev.end.transitions = append(prev.end.transitions, &transition{
-				edge:  "eps",
+				edge:  EPS,
 				state: inner.start,
 			})
 		}
@@ -207,20 +209,20 @@ func populateCurlyRepeatWithNFA(nfa *NFA, payload *repeatPayload) {
 		inner := Parse([]token{payload.token})
 		if prev == nil {
 			nfa.start.transitions = append(nfa.start.transitions, &transition{
-				edge:  "eps",
+				edge:  EPS,
 				state: nfa.end,
 			})
 			nfa.start.transitions = append(nfa.start.transitions, &transition{
-				edge:  "eps",
+				edge:  EPS,
 				state: inner.start,
 			})
 		} else {
 			prev.end.transitions = append(prev.end.transitions, &transition{
-				edge:  "eps",
+				edge:  EPS,
 				state: inner.start,
 			})
 			prev.end.transitions = append(prev.end.transitions, &transition{
-				edge:  "eps",
+				edge:  EPS,
 				state: nfa.end,
 			})
 		}
@@ -228,7 +230,7 @@ func populateCurlyRepeatWithNFA(nfa *NFA, payload *repeatPayload) {
 	}
 	if prev != nil {
 		prev.end.transitions = append(prev.end.transitions, &transition{
-			edge:  "eps",
+			edge:  EPS,
 			state: nfa.end,
 		})
 	}
@@ -236,30 +238,30 @@ func populateCurlyRepeatWithNFA(nfa *NFA, payload *repeatPayload) {
 
 func populatePlusWithNFA(inner *NFA, nfa *NFA) {
 	nfa.start.transitions = append(nfa.start.transitions, &transition{
-		edge:  "eps",
+		edge:  EPS,
 		state: inner.start,
 	})
 	inner.end.transitions = append(inner.end.transitions, &transition{
-		edge:  "eps",
+		edge:  EPS,
 		state: nfa.end,
 	})
 	inner.end.transitions = append(inner.end.transitions, &transition{
-		edge:  "eps",
+		edge:  EPS,
 		state: nfa.start,
 	})
 }
 
 func populateStarWithNFA(inner *NFA, nfa *NFA) {
 	nfa.start.transitions = append(nfa.start.transitions, &transition{
-		edge:  "eps",
+		edge:  EPS,
 		state: inner.start,
 	})
 	nfa.start.transitions = append(nfa.start.transitions, &transition{
-		edge:  "eps",
+		edge:  EPS,
 		state: nfa.end,
 	})
 	inner.end.transitions = append(inner.end.transitions, &transition{
-		edge:  "eps",
+		edge:  EPS,
 		state: nfa.start,
 	})
 }
