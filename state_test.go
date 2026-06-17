@@ -12,15 +12,15 @@ func Test(t *testing.T) {
 			toks: []token{
 				{
 					tokenType: literal,
-					value:     "a",
+					value:     byte('a'),
 				},
 				{
 					tokenType: literal,
-					value:     "c",
+					value:     byte('c'),
 				},
 				{
 					tokenType: literal,
-					value:     "b",
+					value:     byte('b'),
 				},
 			},
 		},
@@ -32,11 +32,11 @@ func Test(t *testing.T) {
 					value: []token{
 						{
 							tokenType: literal,
-							value:     "a",
+							value:     byte('a'),
 						},
 						{
 							tokenType: literal,
-							value:     "c",
+							value:     byte('c'),
 						},
 					},
 				},
@@ -52,8 +52,34 @@ func Test(t *testing.T) {
 						max: -1,
 						token: token{
 							tokenType: literal,
-							value:     "a",
+							value:     byte('a'),
 						},
+					},
+				},
+			},
+		},
+		{
+			desc: "bracket",
+			toks: []token{
+				{
+					tokenType: bracket,
+					value: map[uint8]bool{
+						97: true,
+						98: true,
+						99: true,
+					},
+				},
+			},
+		},
+		{
+			desc: "group",
+			toks: []token{
+				{
+					tokenType: group,
+					value: []token{
+						{tokenType: literal, value: byte('a')},
+						{tokenType: literal, value: byte('b')},
+						{tokenType: literal, value: byte('c')},
 					},
 				},
 			},

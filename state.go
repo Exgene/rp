@@ -144,7 +144,7 @@ func handleTok(tok *token, nfa *NFA) {
 		})
 	case literal:
 		nfa.start.transitions = append(nfa.start.transitions, &transition{
-			edge:  tok.value.(string),
+			edge:  string(tok.value.(byte)),
 			state: nfa.end,
 		})
 	case or:
