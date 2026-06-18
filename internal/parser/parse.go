@@ -58,13 +58,11 @@ type NFA struct {
 	end   *state
 }
 
-type parserState struct {
+type Engine struct {
 	nfa *NFA
 }
 
-var curState *parserState
-
-func Build(regex string) {
+func Build(regex string) *Engine {
 	ctx := &lexer.TokenCtx{
 		Pos:    0,
 		Tokens: []lexer.Token{},
@@ -75,7 +73,7 @@ func Build(regex string) {
 		ctx.Pos += 1
 	}
 
-	curState = &parserState{
+	return &Engine{
 		nfa: buildNFA(ctx.Tokens),
 	}
 }

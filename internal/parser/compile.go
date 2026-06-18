@@ -40,8 +40,8 @@ func epsilonClosure(curStates []*state) []*state {
 	return workingSet
 }
 
-func DoesMatch(matcher string) bool {
-	workingSet := epsilonClosure([]*state{curState.nfa.start})
+func (e *Engine) DoesMatch(matcher string) bool {
+	workingSet := epsilonClosure([]*state{e.nfa.start})
 
 	for _, ch := range matcher {
 		next := []*state{}
@@ -57,5 +57,5 @@ func DoesMatch(matcher string) bool {
 		workingSet = epsilonClosure(next)
 	}
 
-	return slices.Contains(workingSet, curState.nfa.end)
+	return slices.Contains(workingSet, e.nfa.end)
 }

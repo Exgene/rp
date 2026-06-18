@@ -6,15 +6,16 @@ import (
 
 type RegexParser struct {
 	regexPattern string
+	engine       *parser.Engine
 }
 
 func NewRegexEngine(pattern string) RegexParser {
-	parser.Build(pattern)
-	return RegexParser{regexPattern: pattern}
+	engine := parser.Build(pattern)
+	return RegexParser{regexPattern: pattern, engine: engine}
 }
 
 func (rp *RegexParser) Reset(pattern string) {
-	parser.Build(pattern)
+	rp.engine = parser.Build(pattern)
 	rp.regexPattern = pattern
 }
 
@@ -23,5 +24,5 @@ func (rp *RegexParser) DoesMatch(matcherString string) bool {
 }
 
 func (rp *RegexParser) doesMatch(matcherString string) bool {
-	return parser.DoesMatch(matcherString)
+	return rp.engine.DoesMatch(matcherString)
 }
