@@ -1,4 +1,4 @@
-package main
+package lexer
 
 import (
 	"fmt"
@@ -20,13 +20,13 @@ func getLimits(ch byte) (int, int, error) {
 	return -1, -1, fmt.Errorf("Err, Undefined var: %v", ch)
 }
 
-func getBracketLimits(ctx *tokenCtx, regex string) (int, int) {
-	start := ctx.pos + 1
-	for regex[ctx.pos] != '}' {
-		ctx.pos++
+func getBracketLimits(ctx *TokenCtx, regex string) (int, int) {
+	start := ctx.Pos + 1
+	for regex[ctx.Pos] != '}' {
+		ctx.Pos++
 	}
 
-	boundary := regex[start:ctx.pos]
+	boundary := regex[start:ctx.Pos]
 	pieces := strings.Split(boundary, ",")
 	var min, max int
 
