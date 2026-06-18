@@ -6,7 +6,7 @@ import (
 	"github.com/exgene/rp/internal/lexer"
 )
 
-func Test(t *testing.T) {
+func BasicParseTestsManualNFAVerification(t *testing.T) {
 	testCases := []struct {
 		desc string
 		toks []lexer.Token
@@ -92,7 +92,7 @@ func Test(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			// NFA pointer pointing to the first nfa object
-			nfa := BuildNFA(tC.toks)
+			nfa := buildNFA(tC.toks)
 			nfa.Print()
 		})
 	}
