@@ -50,7 +50,7 @@ type edge struct {
 	val      any
 }
 
-type NFA struct {
+type nfa_obj struct {
 	// so instead of having types, you create the NFA and store start
 	// and end states directly into the NFA structure, maybe not the heavy states
 	// but a pointer to it is also fine.
@@ -59,7 +59,7 @@ type NFA struct {
 }
 
 type Engine struct {
-	nfa *NFA
+	nfa *nfa_obj
 }
 
 func Build(regex string) *Engine {
@@ -78,7 +78,7 @@ func Build(regex string) *Engine {
 	}
 }
 
-func (nfa *NFA) Build() {
+func (nfa *nfa_obj) Build() {
 	start := state{
 		nu:          counter(),
 		transitions: []*transition{},
@@ -93,7 +93,7 @@ func (nfa *NFA) Build() {
 
 // should link the left NFA with the RIGHT one using
 // epsillon connection between the two
-func (left *NFA) Link(right *NFA) {
+func (left *nfa_obj) Link(right *nfa_obj) {
 	left.end.transitions = append(left.end.transitions, &transition{
 		edge:  edge{edgeType: edgeEpsillon},
 		state: right.start,
@@ -101,18 +101,18 @@ func (left *NFA) Link(right *NFA) {
 	left.end = right.end
 }
 
-func buildNFA(toks []lexer.Token) *NFA {
-	var prevNFA *NFA = nil
-	var returnPTR *NFA = nil
+func buildNFA(toks []lexer.Token) *nfa_obj {
+	var prevNFA *nfa_obj = nil
+	var returnPTR *nfa_obj = nil
 
 	for _, tok := range toks {
 		if prevNFA == nil {
-			prevNFA = &NFA{}
+			prevNFA = &nfa_obj{}
 			prevNFA.Build()
 			handleTok(&tok, prevNFA)
 			returnPTR = prevNFA
 		} else {
-			newNFA := NFA{}
+			newNFA := nfa_obj{}
 			newNFA.Build()
 			handleTok(&tok, &newNFA)
 			prevNFA.Link(&newNFA)
@@ -128,7 +128,7 @@ func (s *state) Print() {
 	fmt.Printf("state:%d\n", s.nu)
 }
 
-func (nfa NFA) Print() {
+func (nfa nfa_obj) Print() {
 	// map / set to prevent recursive infinite printing
 	id := map[*state]bool{nfa.start: true}
 	queue := []*state{nfa.start}
@@ -171,7 +171,7 @@ func (nfa NFA) Print() {
 	}
 }
 
-func handleTok(tok *lexer.Token, nfa *NFA) {
+func handleTok(tok *lexer.Token, nfa *nfa_obj) {
 	// build NFA for the given token
 	switch tok.TokenType {
 	case lexer.Bracket:
@@ -239,8 +239,8 @@ func handleTok(tok *lexer.Token, nfa *NFA) {
 	}
 }
 
-func populateCurlyRepeatWithNFA(nfa *NFA, payload *lexer.RepeatPayload) {
-	var prev *NFA = nil
+func populateCurlyRepeatWithNFA(nfa *nfa_obj, payload *lexer.RepeatPayload) {
+	var prev *nfa_obj = nil
 	for range payload.Min {
 		inner := buildNFA([]lexer.Token{payload.Token})
 		if prev == nil {
@@ -288,7 +288,7 @@ func populateCurlyRepeatWithNFA(nfa *NFA, payload *lexer.RepeatPayload) {
 	}
 }
 
-func populatePlusWithNFA(inner *NFA, nfa *NFA) {
+func populatePlusWithNFA(inner *nfa_obj, nfa *nfa_obj) {
 	nfa.start.transitions = append(nfa.start.transitions, &transition{
 		edge:  edge{edgeType: edgeEpsillon},
 		state: inner.start,
@@ -303,7 +303,7 @@ func populatePlusWithNFA(inner *NFA, nfa *NFA) {
 	})
 }
 
-func populateStarWithNFA(inner *NFA, nfa *NFA) {
+func populateStarWithNFA(inner *nfa_obj, nfa *nfa_obj) {
 	nfa.start.transitions = append(nfa.start.transitions, &transition{
 		edge:  edge{edgeType: edgeEpsillon},
 		state: inner.start,
