@@ -28,7 +28,7 @@ type Token struct {
 	Value     any
 }
 
-type tokenCtx struct {
+type TokenCtx struct {
 	Pos    int
 	Tokens []Token
 }
