@@ -4,7 +4,21 @@ import (
 	"fmt"
 )
 
-func Process(regex string, ctx *TokenCtx) {
+func ProduceTokens(regex string) []Token {
+	ctx := &TokenCtx{
+		Pos:    0,
+		Tokens: []Token{},
+	}
+
+	for ctx.Pos < len(regex) {
+		process(regex, ctx)
+		ctx.Pos += 1
+	}
+
+	return ctx.Tokens
+}
+
+func process(regex string, ctx *TokenCtx) {
 	cur := regex[ctx.Pos]
 	switch cur {
 	case '[':
@@ -40,7 +54,7 @@ func processOr(ctx *TokenCtx, regex string) {
 		Tokens: []Token{},
 	}
 	for rhsContext.Pos < len(regex) && regex[rhsContext.Pos] != ')' {
-		Process(regex, rhsContext)
+		process(regex, rhsContext)
 		rhsContext.Pos++
 	}
 
@@ -79,7 +93,7 @@ func processRepeatLimits(ctx *TokenCtx, regex string) {
 func processGroup(groupCtx *TokenCtx, regex string) {
 	groupCtx.Pos += 1
 	for regex[groupCtx.Pos] != ')' {
-		Process(regex, groupCtx)
+		process(regex, groupCtx)
 		groupCtx.Pos += 1
 	}
 }

@@ -59,26 +59,18 @@ type nfa_obj struct {
 }
 
 type Engine struct {
+	// ugly naming for now due to alias conflict
 	nfa *nfa_obj
 }
 
 func Build(regex string) *Engine {
-	ctx := &lexer.TokenCtx{
-		Pos:    0,
-		Tokens: []lexer.Token{},
-	}
-
-	for ctx.Pos < len(regex) {
-		lexer.Process(regex, ctx)
-		ctx.Pos += 1
-	}
-
+	toks := lexer.ProduceTokens(regex)
 	return &Engine{
-		nfa: buildNFA(ctx.Tokens),
+		nfa: buildNFA(toks),
 	}
 }
 
-func (nfa *nfa_obj) Build() {
+func (nfa *nfa_obj) build() {
 	start := state{
 		nu:          counter(),
 		transitions: []*transition{},
@@ -93,7 +85,7 @@ func (nfa *nfa_obj) Build() {
 
 // should link the left NFA with the RIGHT one using
 // epsillon connection between the two
-func (left *nfa_obj) Link(right *nfa_obj) {
+func (left *nfa_obj) link(right *nfa_obj) {
 	left.end.transitions = append(left.end.transitions, &transition{
 		edge:  edge{edgeType: edgeEpsillon},
 		state: right.start,
@@ -108,14 +100,14 @@ func buildNFA(toks []lexer.Token) *nfa_obj {
 	for _, tok := range toks {
 		if prevNFA == nil {
 			prevNFA = &nfa_obj{}
-			prevNFA.Build()
+			prevNFA.build()
 			handleTok(&tok, prevNFA)
 			returnPTR = prevNFA
 		} else {
 			newNFA := nfa_obj{}
-			newNFA.Build()
+			newNFA.build()
 			handleTok(&tok, &newNFA)
-			prevNFA.Link(&newNFA)
+			prevNFA.link(&newNFA)
 			prevNFA = &newNFA
 			returnPTR.end = newNFA.end
 		}
