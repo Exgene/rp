@@ -5,17 +5,9 @@ import (
 	"github.com/exgene/rp/internal/lexer"
 )
 
-var incr uint16 = 0
-
-func counter() uint16 {
-	c := incr
-	incr++
-	return c
-}
-
 type state struct {
 	// Representation of one to many current state => possible transitions.
-	nu          uint16
+	id          uint16
 	transitions []*transition
 }
 
@@ -31,7 +23,7 @@ type edgeType uint8
 
 func (e edgeType) String() string {
 	switch e {
-	case edgeEpsillon:
+	case edgeEpsilon:
 		return ("{Epsillon}")
 	case edgeLiteral:
 		return ("{Edge}")
@@ -41,16 +33,16 @@ func (e edgeType) String() string {
 }
 
 const (
-	edgeLiteral  edgeType = iota
-	edgeEpsillon edgeType = iota
+	edgeLiteral edgeType = iota
+	edgeEpsilon edgeType = iota
 )
 
 type edge struct {
-	edgeType edgeType
-	val      any
+	kind edgeType
+	val  byte
 }
 
-type nfa_obj struct {
+type nfa struct {
 	// so instead of having types, you create the NFA and store start
 	// and end states directly into the NFA structure, maybe not the heavy states
 	// but a pointer to it is also fine.
@@ -58,55 +50,64 @@ type nfa_obj struct {
 	end   *state
 }
 
+type compiler struct {
+	nextID uint16
+}
+
+func (c *compiler) next() uint16 {
+	c.nextID += 1
+	return c.nextID - 1
+}
+
 type Engine struct {
-	// ugly naming for now due to alias conflict
-	nfa *nfa_obj
+	nfa *nfa
 }
 
 func Build(regex string) *Engine {
 	toks := lexer.ProduceTokens(regex)
+	c := &compiler{}
 	return &Engine{
-		nfa: buildNFA(toks),
+		nfa: c.buildNFA(toks),
 	}
 }
 
-func (nfa *nfa_obj) build() {
+func (n *nfa) build(c *compiler) {
 	start := state{
-		nu:          counter(),
+		id:          c.next(),
 		transitions: []*transition{},
 	}
 	end := state{
-		nu:          counter(),
+		id:          c.next(),
 		transitions: []*transition{},
 	}
-	nfa.start = &start
-	nfa.end = &end
+	n.start = &start
+	n.end = &end
 }
 
 // should link the left NFA with the RIGHT one using
 // epsillon connection between the two
-func (left *nfa_obj) link(right *nfa_obj) {
+func (left *nfa) link(right *nfa) {
 	left.end.transitions = append(left.end.transitions, &transition{
-		edge:  edge{edgeType: edgeEpsillon},
+		edge:  edge{kind: edgeEpsilon},
 		state: right.start,
 	})
 	left.end = right.end
 }
 
-func buildNFA(toks []lexer.Token) *nfa_obj {
-	var prevNFA *nfa_obj = nil
-	var returnPTR *nfa_obj = nil
+func (c *compiler) buildNFA(toks []lexer.Token) *nfa {
+	var prevNFA *nfa = nil
+	var returnPTR *nfa = nil
 
 	for _, tok := range toks {
 		if prevNFA == nil {
-			prevNFA = &nfa_obj{}
-			prevNFA.build()
-			handleTok(&tok, prevNFA)
+			prevNFA = &nfa{}
+			prevNFA.build(c)
+			c.handleTok(&tok, prevNFA)
 			returnPTR = prevNFA
 		} else {
-			newNFA := nfa_obj{}
-			newNFA.build()
-			handleTok(&tok, &newNFA)
+			newNFA := nfa{}
+			newNFA.build(c)
+			c.handleTok(&tok, &newNFA)
 			prevNFA.link(&newNFA)
 			prevNFA = &newNFA
 			returnPTR.end = newNFA.end
@@ -117,16 +118,16 @@ func buildNFA(toks []lexer.Token) *nfa_obj {
 }
 
 func (s *state) Print() {
-	fmt.Printf("state:%d\n", s.nu)
+	fmt.Printf("state:%d\n", s.id)
 }
 
-func (nfa nfa_obj) Print() {
+func (n nfa) Print() {
 	// map / set to prevent recursive infinite printing
-	id := map[*state]bool{nfa.start: true}
-	queue := []*state{nfa.start}
+	id := map[*state]bool{n.start: true}
+	queue := []*state{n.start}
 	fmt.Print("NFA main obj start and end =>\n")
-	nfa.start.Print()
-	nfa.end.Print()
+	n.start.Print()
+	n.end.Print()
 
 	for len(queue) > 0 {
 		cur := queue[0]
@@ -134,26 +135,26 @@ func (nfa nfa_obj) Print() {
 		queue = queue[1:]
 
 		label := ""
-		if cur == nfa.start {
+		if cur == n.start {
 			label = " (start) "
 		}
-		if cur == nfa.end {
+		if cur == n.end {
 			label = " (end) "
 		}
-		fmt.Printf("State %d%s:\n", cur.nu, label)
+		fmt.Printf("State %d%s:\n", cur.id, label)
 
 		for _, t := range cur.transitions {
 			if _, seen := id[t.state]; !seen {
 				id[t.state] = true
 				queue = append(queue, t.state)
 			}
-			switch t.edge.edgeType {
-			case edgeEpsillon:
-				fmt.Printf("  --%s--> State %d\n", t.edge.edgeType.String(), t.state.nu)
+			switch t.edge.kind {
+			case edgeEpsilon:
+				fmt.Printf("  --%s--> State %d\n", t.edge.kind.String(), t.state.id)
 			case edgeLiteral:
-				fmt.Printf("  --%s--> State %d\n", t.edge.val.(string), t.state.nu)
+				fmt.Printf("  --%c--> State %d\n", t.edge.val, t.state.id)
 			default:
-				panic(fmt.Sprintf("unexpected main.edgeType: %#v", t.edge.edgeType))
+				panic(fmt.Sprintf("unexpected main.edgeType: %#v", t.edge.kind))
 			}
 		}
 
@@ -163,67 +164,67 @@ func (nfa nfa_obj) Print() {
 	}
 }
 
-func handleTok(tok *lexer.Token, nfa *nfa_obj) {
+func (c *compiler) handleTok(tok *lexer.Token, n *nfa) {
 	// build NFA for the given token
 	switch tok.TokenType {
 	case lexer.Bracket:
 		// you don't need ok because map only iterates over truthy values...
 		// for ch, ok := range Not required
 		for ch := range tok.Value.(map[uint8]bool) {
-			nfa.start.transitions = append(nfa.start.transitions, &transition{
-				edge:  edge{edgeType: edgeLiteral, val: string(ch)},
-				state: nfa.end,
+			n.start.transitions = append(n.start.transitions, &transition{
+				edge:  edge{kind: edgeLiteral, val: byte(ch)},
+				state: n.end,
 			})
 		}
 	case lexer.Group, lexer.GroupUncaptured:
-		inner := buildNFA(tok.Value.([]lexer.Token))
-		nfa.start.transitions = append(nfa.start.transitions, &transition{
-			edge:  edge{edgeType: edgeEpsillon},
+		inner := c.buildNFA(tok.Value.([]lexer.Token))
+		n.start.transitions = append(n.start.transitions, &transition{
+			edge:  edge{kind: edgeEpsilon},
 			state: inner.start,
 		})
 		inner.end.transitions = append(inner.end.transitions, &transition{
-			edge:  edge{edgeType: edgeEpsillon},
-			state: nfa.end,
+			edge:  edge{kind: edgeEpsilon},
+			state: n.end,
 		})
 	case lexer.Literal:
-		nfa.start.transitions = append(nfa.start.transitions, &transition{
+		n.start.transitions = append(n.start.transitions, &transition{
 			edge: edge{
-				edgeType: edgeLiteral,
-				val:      string(tok.Value.(byte)),
+				kind: edgeLiteral,
+				val:  tok.Value.(byte),
 			},
-			state: nfa.end,
+			state: n.end,
 		})
 	case lexer.Or:
 		left := tok.Value.([]lexer.Token)[0]
 		right := tok.Value.([]lexer.Token)[1]
-		leftNFA := buildNFA([]lexer.Token{left})
-		rightNFA := buildNFA([]lexer.Token{right})
-		nfa.start.transitions = append(nfa.start.transitions, &transition{
-			edge:  edge{edgeType: edgeEpsillon},
+		leftNFA := c.buildNFA([]lexer.Token{left})
+		rightNFA := c.buildNFA([]lexer.Token{right})
+		n.start.transitions = append(n.start.transitions, &transition{
+			edge:  edge{kind: edgeEpsilon},
 			state: leftNFA.start,
 		})
-		nfa.start.transitions = append(nfa.start.transitions, &transition{
-			edge:  edge{edgeType: edgeEpsillon},
+		n.start.transitions = append(n.start.transitions, &transition{
+			edge:  edge{kind: edgeEpsilon},
 			state: rightNFA.start,
 		})
 		leftNFA.end.transitions = append(leftNFA.end.transitions, &transition{
-			edge:  edge{edgeType: edgeEpsillon},
-			state: nfa.end,
+			edge:  edge{kind: edgeEpsilon},
+			state: n.end,
 		})
 		rightNFA.end.transitions = append(rightNFA.end.transitions, &transition{
-			edge:  edge{edgeType: edgeEpsillon},
-			state: nfa.end,
+			edge:  edge{kind: edgeEpsilon},
+			state: n.end,
 		})
 	case lexer.Repeat:
 		payload := tok.Value.(lexer.RepeatPayload)
 		if payload.IsStar() {
-			inner := buildNFA([]lexer.Token{payload.Token})
-			populateStarWithNFA(inner, nfa)
+			inner := c.buildNFA([]lexer.Token{payload.Token})
+			populateStarWithNFA(inner, n)
 		} else if payload.IsPlus() {
-			inner := buildNFA([]lexer.Token{payload.Token})
-			populatePlusWithNFA(inner, nfa)
+			inner := c.buildNFA([]lexer.Token{payload.Token})
+			c.populatePlusWithNFA(inner, n)
 		} else {
-			populateCurlyRepeatWithNFA(nfa, &payload)
+			c.populateCurlyRepeatWithNFA(n, &payload)
 		}
 
 	default:
@@ -231,18 +232,18 @@ func handleTok(tok *lexer.Token, nfa *nfa_obj) {
 	}
 }
 
-func populateCurlyRepeatWithNFA(nfa *nfa_obj, payload *lexer.RepeatPayload) {
-	var prev *nfa_obj = nil
+func (c *compiler) populateCurlyRepeatWithNFA(n *nfa, payload *lexer.RepeatPayload) {
+	var prev *nfa = nil
 	for range payload.Min {
-		inner := buildNFA([]lexer.Token{payload.Token})
+		inner := c.buildNFA([]lexer.Token{payload.Token})
 		if prev == nil {
-			nfa.start.transitions = append(nfa.start.transitions, &transition{
-				edge:  edge{edgeType: edgeEpsillon},
+			n.start.transitions = append(n.start.transitions, &transition{
+				edge:  edge{kind: edgeEpsilon},
 				state: inner.start,
 			})
 		} else {
 			prev.end.transitions = append(prev.end.transitions, &transition{
-				edge:  edge{edgeType: edgeEpsillon},
+				edge:  edge{kind: edgeEpsilon},
 				state: inner.start,
 			})
 		}
@@ -250,62 +251,62 @@ func populateCurlyRepeatWithNFA(nfa *nfa_obj, payload *lexer.RepeatPayload) {
 	}
 
 	for i := payload.Min; i < payload.Max; i++ {
-		inner := buildNFA([]lexer.Token{payload.Token})
+		inner := c.buildNFA([]lexer.Token{payload.Token})
 		if prev == nil {
-			nfa.start.transitions = append(nfa.start.transitions, &transition{
-				edge:  edge{edgeType: edgeEpsillon},
-				state: nfa.end,
+			n.start.transitions = append(n.start.transitions, &transition{
+				edge:  edge{kind: edgeEpsilon},
+				state: n.end,
 			})
-			nfa.start.transitions = append(nfa.start.transitions, &transition{
-				edge:  edge{edgeType: edgeEpsillon},
+			n.start.transitions = append(n.start.transitions, &transition{
+				edge:  edge{kind: edgeEpsilon},
 				state: inner.start,
 			})
 		} else {
 			prev.end.transitions = append(prev.end.transitions, &transition{
-				edge:  edge{edgeType: edgeEpsillon},
+				edge:  edge{kind: edgeEpsilon},
 				state: inner.start,
 			})
 			prev.end.transitions = append(prev.end.transitions, &transition{
-				edge:  edge{edgeType: edgeEpsillon},
-				state: nfa.end,
+				edge:  edge{kind: edgeEpsilon},
+				state: n.end,
 			})
 		}
 		prev = inner
 	}
 	if prev != nil {
 		prev.end.transitions = append(prev.end.transitions, &transition{
-			edge:  edge{edgeType: edgeEpsillon},
-			state: nfa.end,
+			edge:  edge{kind: edgeEpsilon},
+			state: n.end,
 		})
 	}
 }
 
-func populatePlusWithNFA(inner *nfa_obj, nfa *nfa_obj) {
-	nfa.start.transitions = append(nfa.start.transitions, &transition{
-		edge:  edge{edgeType: edgeEpsillon},
+func (c *compiler) populatePlusWithNFA(inner *nfa, n *nfa) {
+	n.start.transitions = append(n.start.transitions, &transition{
+		edge:  edge{kind: edgeEpsilon},
 		state: inner.start,
 	})
 	inner.end.transitions = append(inner.end.transitions, &transition{
-		edge:  edge{edgeType: edgeEpsillon},
-		state: nfa.end,
+		edge:  edge{kind: edgeEpsilon},
+		state: n.end,
 	})
 	inner.end.transitions = append(inner.end.transitions, &transition{
-		edge:  edge{edgeType: edgeEpsillon},
-		state: nfa.start,
+		edge:  edge{kind: edgeEpsilon},
+		state: n.start,
 	})
 }
 
-func populateStarWithNFA(inner *nfa_obj, nfa *nfa_obj) {
-	nfa.start.transitions = append(nfa.start.transitions, &transition{
-		edge:  edge{edgeType: edgeEpsillon},
+func populateStarWithNFA(inner *nfa, n *nfa) {
+	n.start.transitions = append(n.start.transitions, &transition{
+		edge:  edge{kind: edgeEpsilon},
 		state: inner.start,
 	})
-	nfa.start.transitions = append(nfa.start.transitions, &transition{
-		edge:  edge{edgeType: edgeEpsillon},
-		state: nfa.end,
+	n.start.transitions = append(n.start.transitions, &transition{
+		edge:  edge{kind: edgeEpsilon},
+		state: n.end,
 	})
 	inner.end.transitions = append(inner.end.transitions, &transition{
-		edge:  edge{edgeType: edgeEpsillon},
-		state: nfa.start,
+		edge:  edge{kind: edgeEpsilon},
+		state: n.start,
 	})
 }
