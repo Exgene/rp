@@ -49,7 +49,7 @@ func (e *Engine) DoesMatch(matcher string) bool {
 
 		for _, s := range workingSet {
 			for _, e := range s.transitions {
-				if e.edge.kind == edgeLiteral && e.edge.val == ch {
+				if e.edge.kind == edgeLiteral && e.edge.ch == ch {
 					next = append(next, e.state)
 				}
 			}

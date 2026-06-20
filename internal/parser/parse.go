@@ -39,7 +39,7 @@ const (
 
 type edge struct {
 	kind edgeType
-	val  byte
+	ch  byte
 }
 
 type nfa struct {
@@ -152,7 +152,7 @@ func (n nfa) Print() {
 			case edgeEpsilon:
 				fmt.Printf("  --%s--> State %d\n", t.edge.kind.String(), t.state.id)
 			case edgeLiteral:
-				fmt.Printf("  --%c--> State %d\n", t.edge.val, t.state.id)
+				fmt.Printf("  --%c--> State %d\n", t.edge.ch, t.state.id)
 			default:
 				panic(fmt.Sprintf("unexpected main.edgeType: %#v", t.edge.kind))
 			}
@@ -172,7 +172,7 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) {
 		// for ch, ok := range Not required
 		for ch := range tok.Value.(map[uint8]bool) {
 			n.start.transitions = append(n.start.transitions, &transition{
-				edge:  edge{kind: edgeLiteral, val: byte(ch)},
+				edge:  edge{kind: edgeLiteral, ch: byte(ch)},
 				state: n.end,
 			})
 		}
@@ -190,7 +190,7 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) {
 		n.start.transitions = append(n.start.transitions, &transition{
 			edge: edge{
 				kind: edgeLiteral,
-				val:  tok.Value.(byte),
+				ch:  tok.Value.(byte),
 			},
 			state: n.end,
 		})

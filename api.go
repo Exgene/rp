@@ -20,9 +20,5 @@ func (rp *RegexParser) Reset(pattern string) {
 }
 
 func (rp *RegexParser) DoesMatch(matcherString string) bool {
-	return rp.doesMatch(matcherString)
-}
-
-func (rp *RegexParser) doesMatch(matcherString string) bool {
 	return rp.engine.DoesMatch(matcherString)
 }
