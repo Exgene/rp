@@ -116,9 +116,16 @@ func TestE2EBehaviour(t *testing.T) {
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			engine := rp.NewRegexEngine("")
+			var err error
+			err, engine := rp.NewRegexEngine("")
+			if err != nil {
+				t.Fatalf("Failed to compile regex: %s with error %v", "", err.Error())
+			}
 			for _, v := range tC.value {
-				engine.Reset(v.regex)
+				err := engine.Reset(v.regex)
+				if err != nil {
+					t.Fatalf("Failed to compile regex: %s with error %v", v.regex, err.Error())
+				}
 				if engine.DoesMatch(v.input) != v.doesMatch {
 					t.Fatalf("Failed -> %s should %v with %s", v.input, v.doesMatch, v.regex)
 				}

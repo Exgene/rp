@@ -4,57 +4,79 @@ import (
 	"fmt"
 )
 
-func ProduceTokens(regex string) []Token {
+func ProduceTokens(regex string) (error, []Token) {
 	ctx := &TokenCtx{
 		Pos:    0,
 		Tokens: []Token{},
 	}
 
 	for ctx.Pos < len(regex) {
-		process(regex, ctx)
+		err := process(regex, ctx)
+		if err != nil {
+			return err, nil
+		}
 		ctx.Pos += 1
 	}
 
-	return ctx.Tokens
+	return nil, ctx.Tokens
 }
 
-func process(regex string, ctx *TokenCtx) {
+func process(regex string, ctx *TokenCtx) error {
 	cur := regex[ctx.Pos]
 	switch cur {
 	case '[':
-		processBracket(ctx, regex)
+		err := processBracket(ctx, regex)
+		if err != nil {
+			return err
+		}
 	case '+', '*', '?':
-		processRepeat(ctx, regex)
+		err := processRepeat(ctx, regex)
+		if err != nil {
+			return err
+		}
 	case '(':
 		groupCtx := &TokenCtx{
 			Pos:    ctx.Pos,
 			Tokens: []Token{},
 		}
-		processGroup(groupCtx, regex)
+		err := processGroup(groupCtx, regex)
+		if err != nil {
+			return err
+		}
 		ctx.Tokens = append(ctx.Tokens, Token{
 			TokenType: Group,
 			Value:     groupCtx.Tokens,
 		})
 		ctx.Pos = groupCtx.Pos
 	case '{':
-		processRepeatLimits(ctx, regex)
+		err := processRepeatLimits(ctx, regex)
+		if err != nil {
+			return err
+		}
 	case '|':
-		processOr(ctx, regex)
+		err := processOr(ctx, regex)
+		if err != nil {
+			return err
+		}
 	default:
 		ctx.Tokens = append(ctx.Tokens, Token{
 			TokenType: Literal,
 			Value:     cur,
 		})
 	}
+	return nil
 }
 
-func processOr(ctx *TokenCtx, regex string) {
+func processOr(ctx *TokenCtx, regex string) error {
 	rhsContext := &TokenCtx{
 		Pos:    ctx.Pos + 1,
 		Tokens: []Token{},
 	}
 	for rhsContext.Pos < len(regex) && regex[rhsContext.Pos] != ')' {
-		process(regex, rhsContext)
+		err := process(regex, rhsContext)
+		if err != nil {
+			return err
+		}
 		rhsContext.Pos++
 	}
 
@@ -72,13 +94,17 @@ func processOr(ctx *TokenCtx, regex string) {
 		TokenType: Or,
 		Value:     []Token{left, right},
 	}}
+	return nil
 }
 
-func processRepeatLimits(ctx *TokenCtx, regex string) {
+func processRepeatLimits(ctx *TokenCtx, regex string) error {
 	if len(ctx.Tokens) == 0 {
-		panic("Repeat has no target")
+		return fmt.Errorf("Repeat has no target")
 	}
-	lower, upper := getBracketLimits(ctx, regex)
+	lower, upper, err := getBracketLimits(ctx, regex)
+	if err != nil {
+		return err
+	}
 	lastToken := ctx.Tokens[len(ctx.Tokens)-1]
 	ctx.Tokens[len(ctx.Tokens)-1] = Token{
 		TokenType: Repeat,
@@ -88,17 +114,22 @@ func processRepeatLimits(ctx *TokenCtx, regex string) {
 			Token: lastToken,
 		},
 	}
+	return nil
 }
 
-func processGroup(groupCtx *TokenCtx, regex string) {
+func processGroup(groupCtx *TokenCtx, regex string) error {
 	groupCtx.Pos += 1
 	for regex[groupCtx.Pos] != ')' {
-		process(regex, groupCtx)
+		err := process(regex, groupCtx)
+		if err != nil {
+			return err
+		}
 		groupCtx.Pos += 1
 	}
+	return nil
 }
 
-func processRepeat(ctx *TokenCtx, regex string) {
+func processRepeat(ctx *TokenCtx, regex string) error {
 	if len(ctx.Tokens) == 0 {
 		panic("Repeat has no target")
 	}
@@ -106,7 +137,7 @@ func processRepeat(ctx *TokenCtx, regex string) {
 	lower, upper, err := getLimits(ch)
 	if err != nil {
 		fmt.Printf("Error: %v", err)
-		panic("Shouldn't happend: ")
+		return err
 	}
 	lastToken := ctx.Tokens[len(ctx.Tokens)-1]
 	ctx.Tokens[len(ctx.Tokens)-1] = Token{
@@ -117,9 +148,10 @@ func processRepeat(ctx *TokenCtx, regex string) {
 			Token: lastToken,
 		},
 	}
+	return nil
 }
 
-func processBracket(ctx *TokenCtx, regex string) {
+func processBracket(ctx *TokenCtx, regex string) error {
 	ctx.Pos += 1
 	var literals []string
 	for ctx.Pos < len(regex) && regex[ctx.Pos] != ']' {
@@ -145,4 +177,6 @@ func processBracket(ctx *TokenCtx, regex string) {
 		TokenType: Bracket,
 		Value:     literalMap,
 	})
+
+	return nil
 }

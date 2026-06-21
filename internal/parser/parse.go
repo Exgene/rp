@@ -39,7 +39,7 @@ const (
 
 type edge struct {
 	kind edgeType
-	ch  byte
+	ch   byte
 }
 
 type nfa struct {
@@ -63,11 +63,18 @@ type Engine struct {
 	nfa *nfa
 }
 
-func Build(regex string) *Engine {
-	toks := lexer.ProduceTokens(regex)
+func Build(regex string) (error, *Engine) {
+	err, toks := lexer.ProduceTokens(regex)
+	if err != nil {
+		return err, nil
+	}
 	c := &compiler{}
-	return &Engine{
-		nfa: c.buildNFA(toks),
+	err, nfa := c.buildNFA(toks)
+	if err != nil {
+		return err, nil
+	}
+	return nil, &Engine{
+		nfa: nfa,
 	}
 }
 
@@ -94,7 +101,7 @@ func (left *nfa) link(right *nfa) {
 	left.end = right.end
 }
 
-func (c *compiler) buildNFA(toks []lexer.Token) *nfa {
+func (c *compiler) buildNFA(toks []lexer.Token) (error, *nfa) {
 	var prevNFA *nfa = nil
 	var returnPTR *nfa = nil
 
@@ -102,19 +109,25 @@ func (c *compiler) buildNFA(toks []lexer.Token) *nfa {
 		if prevNFA == nil {
 			prevNFA = &nfa{}
 			prevNFA.build(c)
-			c.handleTok(&tok, prevNFA)
+			err := c.handleTok(&tok, prevNFA)
+			if err != nil {
+				return err, nil
+			}
 			returnPTR = prevNFA
 		} else {
 			newNFA := nfa{}
 			newNFA.build(c)
-			c.handleTok(&tok, &newNFA)
+			err := c.handleTok(&tok, &newNFA)
+			if err != nil {
+				return err, nil
+			}
 			prevNFA.link(&newNFA)
 			prevNFA = &newNFA
 			returnPTR.end = newNFA.end
 		}
 	}
 
-	return returnPTR
+	return nil, returnPTR
 }
 
 func (s *state) Print() {
@@ -164,7 +177,7 @@ func (n nfa) Print() {
 	}
 }
 
-func (c *compiler) handleTok(tok *lexer.Token, n *nfa) {
+func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
 	// build NFA for the given token
 	switch tok.TokenType {
 	case lexer.Bracket:
@@ -177,7 +190,10 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) {
 			})
 		}
 	case lexer.Group, lexer.GroupUncaptured:
-		inner := c.buildNFA(tok.Value.([]lexer.Token))
+		err, inner := c.buildNFA(tok.Value.([]lexer.Token))
+		if err != nil {
+			return err
+		}
 		n.start.transitions = append(n.start.transitions, &transition{
 			edge:  edge{kind: edgeEpsilon},
 			state: inner.start,
@@ -190,15 +206,21 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) {
 		n.start.transitions = append(n.start.transitions, &transition{
 			edge: edge{
 				kind: edgeLiteral,
-				ch:  tok.Value.(byte),
+				ch:   tok.Value.(byte),
 			},
 			state: n.end,
 		})
 	case lexer.Or:
 		left := tok.Value.([]lexer.Token)[0]
 		right := tok.Value.([]lexer.Token)[1]
-		leftNFA := c.buildNFA([]lexer.Token{left})
-		rightNFA := c.buildNFA([]lexer.Token{right})
+		err, leftNFA := c.buildNFA([]lexer.Token{left})
+		if err != nil {
+			return err
+		}
+		err, rightNFA := c.buildNFA([]lexer.Token{right})
+		if err != nil {
+			return err
+		}
 		n.start.transitions = append(n.start.transitions, &transition{
 			edge:  edge{kind: edgeEpsilon},
 			state: leftNFA.start,
@@ -218,24 +240,40 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) {
 	case lexer.Repeat:
 		payload := tok.Value.(lexer.RepeatPayload)
 		if payload.IsStar() {
-			inner := c.buildNFA([]lexer.Token{payload.Token})
+			err, inner := c.buildNFA([]lexer.Token{payload.Token})
+			if err != nil {
+				return err
+			}
 			populateStarWithNFA(inner, n)
 		} else if payload.IsPlus() {
-			inner := c.buildNFA([]lexer.Token{payload.Token})
-			c.populatePlusWithNFA(inner, n)
+			err, inner := c.buildNFA([]lexer.Token{payload.Token})
+			if err != nil {
+				return err
+			}
+			err = c.populatePlusWithNFA(inner, n)
+			if err != nil {
+				return err
+			}
 		} else {
-			c.populateCurlyRepeatWithNFA(n, &payload)
+			err := c.populateCurlyRepeatWithNFA(n, &payload)
+			if err != nil {
+				return err
+			}
 		}
 
 	default:
-		panic(fmt.Sprintf("unexpected main.tokenType: %#v", tok.TokenType))
+		return fmt.Errorf("unexpected main.tokenType: %v", tok.TokenType)
 	}
+	return nil
 }
 
-func (c *compiler) populateCurlyRepeatWithNFA(n *nfa, payload *lexer.RepeatPayload) {
+func (c *compiler) populateCurlyRepeatWithNFA(n *nfa, payload *lexer.RepeatPayload) error {
 	var prev *nfa = nil
 	for range payload.Min {
-		inner := c.buildNFA([]lexer.Token{payload.Token})
+		err, inner := c.buildNFA([]lexer.Token{payload.Token})
+		if err != nil {
+			return err
+		}
 		if prev == nil {
 			n.start.transitions = append(n.start.transitions, &transition{
 				edge:  edge{kind: edgeEpsilon},
@@ -251,7 +289,10 @@ func (c *compiler) populateCurlyRepeatWithNFA(n *nfa, payload *lexer.RepeatPaylo
 	}
 
 	for i := payload.Min; i < payload.Max; i++ {
-		inner := c.buildNFA([]lexer.Token{payload.Token})
+		err, inner := c.buildNFA([]lexer.Token{payload.Token})
+		if err != nil {
+			return err
+		}
 		if prev == nil {
 			n.start.transitions = append(n.start.transitions, &transition{
 				edge:  edge{kind: edgeEpsilon},
@@ -279,9 +320,10 @@ func (c *compiler) populateCurlyRepeatWithNFA(n *nfa, payload *lexer.RepeatPaylo
 			state: n.end,
 		})
 	}
+	return nil
 }
 
-func (c *compiler) populatePlusWithNFA(inner *nfa, n *nfa) {
+func (c *compiler) populatePlusWithNFA(inner *nfa, n *nfa) error {
 	n.start.transitions = append(n.start.transitions, &transition{
 		edge:  edge{kind: edgeEpsilon},
 		state: inner.start,
@@ -294,9 +336,10 @@ func (c *compiler) populatePlusWithNFA(inner *nfa, n *nfa) {
 		edge:  edge{kind: edgeEpsilon},
 		state: n.start,
 	})
+	return nil
 }
 
-func populateStarWithNFA(inner *nfa, n *nfa) {
+func populateStarWithNFA(inner *nfa, n *nfa) error {
 	n.start.transitions = append(n.start.transitions, &transition{
 		edge:  edge{kind: edgeEpsilon},
 		state: inner.start,
@@ -309,4 +352,5 @@ func populateStarWithNFA(inner *nfa, n *nfa) {
 		edge:  edge{kind: edgeEpsilon},
 		state: n.start,
 	})
+	return nil
 }

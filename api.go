@@ -9,14 +9,19 @@ type RegexParser struct {
 	engine       *parser.Engine
 }
 
-func NewRegexEngine(pattern string) RegexParser {
-	engine := parser.Build(pattern)
-	return RegexParser{regexPattern: pattern, engine: engine}
+func NewRegexEngine(pattern string) (error, RegexParser) {
+	err, engine := parser.Build(pattern)
+	return err, RegexParser{regexPattern: pattern, engine: engine}
 }
 
-func (rp *RegexParser) Reset(pattern string) {
-	rp.engine = parser.Build(pattern)
+func (rp *RegexParser) Reset(pattern string) error {
+	var err error
+	err, rp.engine = parser.Build(pattern)
+	if err != nil {
+		return err
+	}
 	rp.regexPattern = pattern
+	return nil
 }
 
 func (rp *RegexParser) DoesMatch(matcherString string) bool {

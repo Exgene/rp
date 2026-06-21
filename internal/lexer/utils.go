@@ -20,7 +20,7 @@ func getLimits(ch byte) (int, int, error) {
 	return -1, -1, fmt.Errorf("Err, Undefined var: %v", ch)
 }
 
-func getBracketLimits(ctx *TokenCtx, regex string) (int, int) {
+func getBracketLimits(ctx *TokenCtx, regex string) (int, int, error) {
 	start := ctx.Pos + 1
 	for regex[ctx.Pos] != '}' {
 		ctx.Pos++
@@ -32,26 +32,26 @@ func getBracketLimits(ctx *TokenCtx, regex string) (int, int) {
 
 	if len(pieces) == 1 {
 		if value, err := strconv.Atoi(pieces[0]); err != nil {
-			panic(err.Error())
+			return 0, 0, err
 		} else {
 			min = value
 			max = value
 		}
 	} else if len(pieces) == 2 {
 		if value, err := strconv.Atoi(pieces[0]); err != nil {
-			panic(err.Error())
+			return 0, 0, err
 		} else {
 			min = value
 		}
 		if pieces[1] == "" {
 			max = -1
 		} else if value, err := strconv.Atoi(pieces[1]); err != nil {
-			panic(err.Error())
+			return 0, 0, err
 		} else {
 			max = value
 		}
 	} else {
-		panic("Provide 1, 2 value in between.")
+		return 0, 0, fmt.Errorf("Provide 1, 2 value in between.")
 	}
-	return min, max
+	return min, max, nil
 }
