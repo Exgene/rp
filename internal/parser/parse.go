@@ -21,14 +21,14 @@ type transition struct {
 
 type edgeType uint8
 
-func (e edgeType) String() (string, error) {
+func (e edgeType) String() string {
 	switch e {
 	case edgeEpsilon:
-		return "{Epsillon}", nil
+		return "{Epsillon}"
 	case edgeLiteral:
-		return "{Edge}", nil
+		return "{Edge}"
 	default:
-		return "", ErrUnexpectedEdge
+		return "Unknown, This shouldn't happen"
 	}
 }
 
@@ -134,7 +134,7 @@ func (s *state) Print() {
 	fmt.Printf("state:%d\n", s.id)
 }
 
-func (n nfa) Print() error {
+func (n nfa) Print() {
 	// map / set to prevent recursive infinite printing
 	id := map[*state]bool{n.start: true}
 	queue := []*state{n.start}
@@ -163,16 +163,12 @@ func (n nfa) Print() error {
 			}
 			switch t.edge.kind {
 			case edgeEpsilon:
-				st, err := t.edge.kind.String()
-				if err != nil {
-					return err
-				}
-				fmt.Printf("  --%s--> State %d\n", st, t.state.id)
+				fmt.Printf("  --%s--> State %d\n", t.edge.kind.String(), t.state.id)
 			case edgeLiteral:
 				fmt.Printf("  --%c--> State %d\n", t.edge.ch, t.state.id)
 			default:
 				// wont be reached ig?
-				return ErrUnexpectedEdge
+				fmt.Printf("UnknownType --> State %d\n", t.state.id)
 			}
 		}
 
@@ -180,7 +176,6 @@ func (n nfa) Print() error {
 			fmt.Println("  (no outgoing transitions)")
 		}
 	}
-	return nil
 }
 
 func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
