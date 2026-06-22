@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func ProduceTokens(regex string) (error, []Token) {
+func ProduceTokens(regex string) ([]Token, error) {
 	ctx := &TokenCtx{
 		Pos:    0,
 		Tokens: []Token{},
@@ -13,12 +13,12 @@ func ProduceTokens(regex string) (error, []Token) {
 	for ctx.Pos < len(regex) {
 		err := process(regex, ctx)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 		ctx.Pos += 1
 	}
 
-	return nil, ctx.Tokens
+	return ctx.Tokens, nil
 }
 
 func process(regex string, ctx *TokenCtx) error {
@@ -59,12 +59,24 @@ func process(regex string, ctx *TokenCtx) error {
 			return err
 		}
 	default:
+		if isMeta(cur) {
+			return ErrInvalidToken
+		}
 		ctx.Tokens = append(ctx.Tokens, Token{
 			TokenType: Literal,
 			Value:     cur,
 		})
 	}
 	return nil
+}
+
+func isMeta(b byte) bool {
+	switch b {
+	case '*', '+', '|', '(', ')', '[', ']':
+		return true
+	default:
+		return false
+	}
 }
 
 func processOr(ctx *TokenCtx, regex string) error {
@@ -99,7 +111,7 @@ func processOr(ctx *TokenCtx, regex string) error {
 
 func processRepeatLimits(ctx *TokenCtx, regex string) error {
 	if len(ctx.Tokens) == 0 {
-		return fmt.Errorf("Repeat has no target")
+		return ErrEmptyRepeatTarget
 	}
 	lower, upper, err := getBracketLimits(ctx, regex)
 	if err != nil {
@@ -119,24 +131,26 @@ func processRepeatLimits(ctx *TokenCtx, regex string) error {
 
 func processGroup(groupCtx *TokenCtx, regex string) error {
 	groupCtx.Pos += 1
-	for regex[groupCtx.Pos] != ')' {
+	for groupCtx.Pos < len(regex) && regex[groupCtx.Pos] != ')' {
 		err := process(regex, groupCtx)
 		if err != nil {
 			return err
 		}
 		groupCtx.Pos += 1
 	}
+	if groupCtx.Pos == len(regex) && regex[groupCtx.Pos-1] != ')' {
+		return ErrMissingClosingParen
+	}
 	return nil
 }
 
 func processRepeat(ctx *TokenCtx, regex string) error {
 	if len(ctx.Tokens) == 0 {
-		panic("Repeat has no target")
+		return ErrEmptyRepeatTarget
 	}
 	ch := regex[ctx.Pos]
 	lower, upper, err := getLimits(ch)
 	if err != nil {
-		fmt.Printf("Error: %v", err)
 		return err
 	}
 	lastToken := ctx.Tokens[len(ctx.Tokens)-1]
@@ -164,6 +178,9 @@ func processBracket(ctx *TokenCtx, regex string) error {
 			literals = append(literals, fmt.Sprintf("%c", ch))
 		}
 		ctx.Pos++
+	}
+	if ctx.Pos == len(regex) && regex[ctx.Pos-1] != ']' {
+		return ErrMissingClosingSquareBracket
 	}
 	// No set in go thats crazy
 	literalMap := map[uint8]bool{}

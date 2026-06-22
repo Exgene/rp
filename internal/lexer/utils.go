@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -17,13 +16,17 @@ func getLimits(ch byte) (int, int, error) {
 
 	default:
 	}
-	return -1, -1, fmt.Errorf("Err, Undefined var: %v", ch)
+	return -1, -1, ErrUndefinedRepeatType
 }
 
 func getBracketLimits(ctx *TokenCtx, regex string) (int, int, error) {
 	start := ctx.Pos + 1
-	for regex[ctx.Pos] != '}' {
+	for ctx.Pos < len(regex) && regex[ctx.Pos] != '}' {
 		ctx.Pos++
+	}
+
+	if ctx.Pos == len(regex) && regex[ctx.Pos-1] != '}' {
+		return 0, 0, ErrMissingClosingFlowerBracket
 	}
 
 	boundary := regex[start:ctx.Pos]
@@ -51,7 +54,7 @@ func getBracketLimits(ctx *TokenCtx, regex string) (int, int, error) {
 			max = value
 		}
 	} else {
-		return 0, 0, fmt.Errorf("Provide 1, 2 value in between.")
+		return 0, 0, ErrRepeatValueBetweenFlowerBrackets
 	}
 	return min, max, nil
 }

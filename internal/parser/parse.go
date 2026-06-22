@@ -21,14 +21,14 @@ type transition struct {
 
 type edgeType uint8
 
-func (e edgeType) String() string {
+func (e edgeType) String() (string, error) {
 	switch e {
 	case edgeEpsilon:
-		return ("{Epsillon}")
+		return "{Epsillon}", nil
 	case edgeLiteral:
-		return ("{Edge}")
+		return "{Edge}", nil
 	default:
-		panic(fmt.Sprintf("unexpected main.edgeType: %#v", e))
+		return "", ErrUnexpectedEdge
 	}
 }
 
@@ -63,19 +63,19 @@ type Engine struct {
 	nfa *nfa
 }
 
-func Build(regex string) (error, *Engine) {
-	err, toks := lexer.ProduceTokens(regex)
+func Build(regex string) (*Engine, error) {
+	toks, err := lexer.ProduceTokens(regex)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	c := &compiler{}
-	err, nfa := c.buildNFA(toks)
+	nfa, err := c.buildNFA(toks)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
-	return nil, &Engine{
+	return &Engine{
 		nfa: nfa,
-	}
+	}, nil
 }
 
 func (n *nfa) build(c *compiler) {
@@ -101,7 +101,7 @@ func (left *nfa) link(right *nfa) {
 	left.end = right.end
 }
 
-func (c *compiler) buildNFA(toks []lexer.Token) (error, *nfa) {
+func (c *compiler) buildNFA(toks []lexer.Token) (*nfa, error) {
 	var prevNFA *nfa = nil
 	var returnPTR *nfa = nil
 
@@ -111,7 +111,7 @@ func (c *compiler) buildNFA(toks []lexer.Token) (error, *nfa) {
 			prevNFA.build(c)
 			err := c.handleTok(&tok, prevNFA)
 			if err != nil {
-				return err, nil
+				return nil, err
 			}
 			returnPTR = prevNFA
 		} else {
@@ -119,7 +119,7 @@ func (c *compiler) buildNFA(toks []lexer.Token) (error, *nfa) {
 			newNFA.build(c)
 			err := c.handleTok(&tok, &newNFA)
 			if err != nil {
-				return err, nil
+				return nil, err
 			}
 			prevNFA.link(&newNFA)
 			prevNFA = &newNFA
@@ -127,14 +127,14 @@ func (c *compiler) buildNFA(toks []lexer.Token) (error, *nfa) {
 		}
 	}
 
-	return nil, returnPTR
+	return returnPTR, nil
 }
 
 func (s *state) Print() {
 	fmt.Printf("state:%d\n", s.id)
 }
 
-func (n nfa) Print() {
+func (n nfa) Print() error {
 	// map / set to prevent recursive infinite printing
 	id := map[*state]bool{n.start: true}
 	queue := []*state{n.start}
@@ -163,11 +163,16 @@ func (n nfa) Print() {
 			}
 			switch t.edge.kind {
 			case edgeEpsilon:
-				fmt.Printf("  --%s--> State %d\n", t.edge.kind.String(), t.state.id)
+				st, err := t.edge.kind.String()
+				if err != nil {
+					return err
+				}
+				fmt.Printf("  --%s--> State %d\n", st, t.state.id)
 			case edgeLiteral:
 				fmt.Printf("  --%c--> State %d\n", t.edge.ch, t.state.id)
 			default:
-				panic(fmt.Sprintf("unexpected main.edgeType: %#v", t.edge.kind))
+				// wont be reached ig?
+				return ErrUnexpectedEdge
 			}
 		}
 
@@ -175,6 +180,7 @@ func (n nfa) Print() {
 			fmt.Println("  (no outgoing transitions)")
 		}
 	}
+	return nil
 }
 
 func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
@@ -183,14 +189,22 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
 	case lexer.Bracket:
 		// you don't need ok because map only iterates over truthy values...
 		// for ch, ok := range Not required
-		for ch := range tok.Value.(map[uint8]bool) {
+		m, ok := tok.Value.(map[uint8]bool)
+		if !ok {
+			return lexer.ErrExpectedValueShapeMismatch
+		}
+		for ch := range m {
 			n.start.transitions = append(n.start.transitions, &transition{
 				edge:  edge{kind: edgeLiteral, ch: byte(ch)},
 				state: n.end,
 			})
 		}
 	case lexer.Group, lexer.GroupUncaptured:
-		err, inner := c.buildNFA(tok.Value.([]lexer.Token))
+		tok, ok := tok.Value.([]lexer.Token)
+		if !ok {
+			return lexer.ErrExpectedValueShapeMismatch
+		}
+		inner, err := c.buildNFA(tok)
 		if err != nil {
 			return err
 		}
@@ -203,21 +217,29 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
 			state: n.end,
 		})
 	case lexer.Literal:
+		ch, ok := tok.Value.(byte)
+		if !ok {
+			return lexer.ErrExpectedValueShapeMismatch
+		}
 		n.start.transitions = append(n.start.transitions, &transition{
 			edge: edge{
 				kind: edgeLiteral,
-				ch:   tok.Value.(byte),
+				ch:   ch,
 			},
 			state: n.end,
 		})
 	case lexer.Or:
-		left := tok.Value.([]lexer.Token)[0]
-		right := tok.Value.([]lexer.Token)[1]
-		err, leftNFA := c.buildNFA([]lexer.Token{left})
+		v, ok := tok.Value.([]lexer.Token)
+		if !ok {
+			return lexer.ErrExpectedValueShapeMismatch
+		}
+		left := v[0]
+		right := v[1]
+		leftNFA, err := c.buildNFA([]lexer.Token{left})
 		if err != nil {
 			return err
 		}
-		err, rightNFA := c.buildNFA([]lexer.Token{right})
+		rightNFA, err := c.buildNFA([]lexer.Token{right})
 		if err != nil {
 			return err
 		}
@@ -238,15 +260,18 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
 			state: n.end,
 		})
 	case lexer.Repeat:
-		payload := tok.Value.(lexer.RepeatPayload)
+		payload, ok := tok.Value.(lexer.RepeatPayload)
+		if !ok {
+			return lexer.ErrExpectedValueShapeMismatch
+		}
 		if payload.IsStar() {
-			err, inner := c.buildNFA([]lexer.Token{payload.Token})
+			inner, err := c.buildNFA([]lexer.Token{payload.Token})
 			if err != nil {
 				return err
 			}
 			populateStarWithNFA(inner, n)
 		} else if payload.IsPlus() {
-			err, inner := c.buildNFA([]lexer.Token{payload.Token})
+			inner, err := c.buildNFA([]lexer.Token{payload.Token})
 			if err != nil {
 				return err
 			}
@@ -262,7 +287,7 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
 		}
 
 	default:
-		return fmt.Errorf("unexpected main.tokenType: %v", tok.TokenType)
+		return ErrUnexpectedToken
 	}
 	return nil
 }
@@ -270,7 +295,7 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
 func (c *compiler) populateCurlyRepeatWithNFA(n *nfa, payload *lexer.RepeatPayload) error {
 	var prev *nfa = nil
 	for range payload.Min {
-		err, inner := c.buildNFA([]lexer.Token{payload.Token})
+		inner, err := c.buildNFA([]lexer.Token{payload.Token})
 		if err != nil {
 			return err
 		}
@@ -289,7 +314,7 @@ func (c *compiler) populateCurlyRepeatWithNFA(n *nfa, payload *lexer.RepeatPaylo
 	}
 
 	for i := payload.Min; i < payload.Max; i++ {
-		err, inner := c.buildNFA([]lexer.Token{payload.Token})
+		inner, err := c.buildNFA([]lexer.Token{payload.Token})
 		if err != nil {
 			return err
 		}

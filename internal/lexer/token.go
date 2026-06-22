@@ -39,50 +39,77 @@ type RepeatPayload struct {
 	Token Token
 }
 
-func PrintTokens(toks []Token) {
+func PrintTokens(toks []Token) error {
 	for _, t := range toks {
-		t.Print("")
+		err := t.Print("")
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (tok Token) Print(indent string) {
+func (tok Token) Print(indent string) error {
 	switch tok.TokenType {
 	case Literal:
-		fmt.Printf("%s- literal: %q\n", indent, tok.Value.(byte))
+		ch, ok := tok.Value.(byte)
+		if !ok {
+			return ErrExpectedValueShapeMismatch
+		}
+		fmt.Printf("%s- literal: %q\n", indent, ch)
 
 	case Bracket:
 		fmt.Printf("%s- bracket: \n", indent)
-		for k := range tok.Value.(map[uint8]bool) {
+		m, ok := tok.Value.(map[uint8]bool)
+		if !ok {
+			return ErrExpectedValueShapeMismatch
+		}
+		for k := range m {
 			t := string(k)
 			fmt.Printf("%v==", t)
 		}
 
 	case Group:
 		fmt.Printf("%s- group:\n", indent)
-		for _, t := range tok.Value.([]Token) {
+		m, ok := tok.Value.([]Token)
+		if !ok {
+			return ErrExpectedValueShapeMismatch
+		}
+		for _, t := range m {
 			t.Print(indent + "  ")
 		}
 
 	case GroupUncaptured:
 		fmt.Printf("%s- uncaptured group:\n", indent)
-		for _, t := range tok.Value.([]Token) {
+		m, ok := tok.Value.([]Token)
+		if !ok {
+			return ErrExpectedValueShapeMismatch
+		}
+		for _, t := range m {
 			t.Print(indent + "  ")
 		}
 
 	case Repeat:
-		payload := tok.Value.(RepeatPayload)
+		payload, ok := tok.Value.(RepeatPayload)
+		if !ok {
+			return ErrExpectedValueShapeMismatch
+		}
 		fmt.Printf("%s- repeat: min=%d max=%d\n", indent, payload.Min, payload.Max)
 		fmt.Printf("%s  target:\n", indent)
 		payload.Token.Print(indent + "    ")
 
 	case Or:
 		fmt.Printf("%s- or:\n", indent)
-		branches := tok.Value.([]Token)
+		branches, ok := tok.Value.([]Token)
+		if !ok {
+			return ErrExpectedValueShapeMismatch
+		}
 		for i, branch := range branches {
 			fmt.Printf("%s  branch %d:\n", indent, i+1)
 			branch.Print(indent + "    ")
 		}
 	default:
-		panic(fmt.Sprintf("unexpected main.tokenType: %#v", tok.TokenType))
+		return ErrUnexpectedToken
 	}
+	return nil
 }

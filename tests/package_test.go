@@ -117,7 +117,7 @@ func TestE2EBehaviour(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			var err error
-			err, engine := rp.NewRegexEngine("")
+			engine, err := rp.NewRegexEngine("")
 			if err != nil {
 				t.Fatalf("Failed to compile regex: %s with error %v", "", err.Error())
 			}
