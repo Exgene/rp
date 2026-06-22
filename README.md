@@ -11,3 +11,7 @@ Simple regex parser written to understand
 - Graph traversal.
 - Go Error handling / Folder structure.
 - Node parsing.
+
+---
+
+**No LLMS were used**
