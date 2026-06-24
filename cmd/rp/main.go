@@ -10,7 +10,7 @@ func main() {
 	if err != nil {
 		panic("Error: " + err.Error())
 	}
-	fmt.Print(parser.DoesMatch("a"))
-	fmt.Print(parser.DoesMatch("b"))
-	fmt.Print(parser.DoesMatch(""))
+	fmt.Print(parser.MatchString("a"))
+	fmt.Print(parser.MatchString("b"))
+	fmt.Print(parser.MatchString(""))
 }

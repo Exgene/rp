@@ -24,6 +24,14 @@ func (rp *RegexParser) Reset(pattern string) error {
 	return nil
 }
 
-func (rp *RegexParser) DoesMatch(matcherString string) bool {
-	return rp.engine.DoesMatch(matcherString)
+func (rp *RegexParser) MatchString(matcherString string) bool {
+	return rp.engine.MatchString(matcherString)
+}
+
+func (rp *RegexParser) Pattern() string {
+	return rp.regexPattern
+}
+
+func (rp *RegexParser) FindString(matcherString string) (string, bool) {
+	return rp.engine.FindFirstMatch(matcherString)
 }

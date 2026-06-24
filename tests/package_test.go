@@ -6,20 +6,83 @@ import (
 	"github.com/exgene/rp"
 )
 
-type value struct {
+type boolValue struct {
 	input     string
 	regex     string
 	doesMatch bool
 }
 
-func TestE2EBehaviour(t *testing.T) {
-	testCases := []struct {
+type matchValue struct {
+	input      string
+	regex      string
+	isMatching bool
+	matching   string
+}
+
+func TestE2EMatchValue(t *testing.T) {
+	testMatch := []struct {
 		desc  string
-		value []value
+		value []matchValue
+	}{
+		{
+			desc: "generic first find",
+			value: []matchValue{
+				{
+					input:      "abab",
+					regex:      "ab+",
+					matching:   "ab",
+					isMatching: true,
+				},
+				{
+					input:      "ab",
+					regex:      "ab+",
+					matching:   "ab",
+					isMatching: true,
+				},
+				{
+					input:      "a",
+					regex:      "ab+",
+					matching:   "",
+					isMatching: false,
+				},
+				{
+					input:      "bbb",
+					regex:      "ab+",
+					matching:   "",
+					isMatching: false,
+				},
+			},
+		},
+	}
+
+	for _, tC := range testMatch {
+		t.Run(tC.desc, func(t *testing.T) {
+			engine, err := rp.NewRegexEngine("")
+			if err != nil {
+				t.Fatalf("Failed to compile regex: %s with error %v", "", err.Error())
+			}
+			for _, v := range tC.value {
+				err := engine.Reset(v.regex)
+				if err != nil {
+					t.Fatalf("Failed to compile regex: %s with error %v", v.regex, err.Error())
+				}
+				m, ok := engine.FindString(v.input)
+				if ok != v.isMatching || v.matching != m {
+					t.Fatalf("Failed => %s doesnt match with %s ::: %v == %v", m, v.matching, ok, v.isMatching)
+				}
+			}
+		})
+	}
+}
+
+func TestE2EBehaviourDoesMatch(t *testing.T) {
+	testBool := []struct {
+		desc  string
+		value []boolValue
 	}{
 		{
 			desc: "Literal Matching",
-			value: []value{
+			value: []boolValue{
 				{
 					input:     "a",
 					regex:     "a",
@@ -39,7 +102,7 @@ func TestE2EBehaviour(t *testing.T) {
 		},
 		{
 			desc: "+, *",
-			value: []value{
+			value: []boolValue{
 				{
 					input:     "a",
 					regex:     "a+",
@@ -69,7 +132,7 @@ func TestE2EBehaviour(t *testing.T) {
 		},
 		{
 			desc: "|",
-			value: []value{
+			value: []boolValue{
 				{
 					input:     "a",
 					regex:     "a|b",
@@ -89,7 +152,7 @@ func TestE2EBehaviour(t *testing.T) {
 		},
 		{
 			desc: "[]",
-			value: []value{
+			value: []boolValue{
 				{
 					input:     "a",
 					regex:     "[a-z]+",
@@ -114,7 +177,7 @@ func TestE2EBehaviour(t *testing.T) {
 		},
 	}
 
-	for _, tC := range testCases {
+	for _, tC := range testBool {
 		t.Run(tC.desc, func(t *testing.T) {
 			var err error
 			engine, err := rp.NewRegexEngine("")
@@ -126,7 +189,7 @@ func TestE2EBehaviour(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to compile regex: %s with error %v", v.regex, err.Error())
 				}
-				if engine.DoesMatch(v.input) != v.doesMatch {
+				if engine.MatchString(v.input) != v.doesMatch {
 					t.Fatalf("Failed -> %s should %v with %s", v.input, v.doesMatch, v.regex)
 				}
 			}

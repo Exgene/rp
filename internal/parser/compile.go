@@ -40,7 +40,7 @@ func epsilonClosure(curStates []*state) []*state {
 	return workingSet
 }
 
-func (e *Engine) DoesMatch(matcher string) bool {
+func (e *Engine) MatchString(matcher string) bool {
 	workingSet := epsilonClosure([]*state{e.nfa.start})
 
 	for i := 0; i < len(matcher); i++ {
@@ -59,4 +59,33 @@ func (e *Engine) DoesMatch(matcher string) bool {
 	}
 
 	return slices.Contains(workingSet, e.nfa.end)
+}
+
+func (e *Engine) FindFirstMatch(matcher string) (string, bool) {
+	for start := 0; start < len(matcher); start++ {
+		workingSet := epsilonClosure([]*state{e.nfa.start})
+		for end := start; end < len(matcher); end++ {
+			next := []*state{}
+			ch := matcher[end]
+
+			for _, s := range workingSet {
+				for _, e := range s.transitions {
+					if e.edge.kind == edgeLiteral && e.edge.ch == ch {
+						next = append(next, e.state)
+					}
+				}
+			}
+
+			workingSet = epsilonClosure(next)
+			if len(workingSet) == 0 {
+				break
+			}
+
+			if slices.Contains(workingSet, e.nfa.end) {
+				return matcher[start : end+1], true
+			}
+		}
+	}
+
+	return "", false
 }
