@@ -35,3 +35,7 @@ func (rp *RegexParser) Pattern() string {
 func (rp *RegexParser) FindString(matcherString string) (string, bool) {
 	return rp.engine.FindFirstMatch(matcherString)
 }
+
+func (rp *RegexParser) FindPrefix(matcherString string) (string, bool) {
+	return rp.engine.FindPrefixMatch(0, matcherString)
+}

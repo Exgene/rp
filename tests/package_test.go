@@ -19,6 +19,44 @@ type matchValue struct {
 	matching   string
 }
 
+func TestE2EMatchPrefix(t *testing.T) {
+	testPrefix := []struct {
+		desc  string
+		value []matchValue
+	}{
+		{
+			desc: "generic prefix match",
+			value: []matchValue{
+				{
+					input:      "",
+					regex:      "",
+					isMatching: false,
+					matching:   "",
+				},
+			},
+		},
+	}
+
+	for _, tC := range testPrefix {
+		t.Run(tC.desc, func(t *testing.T) {
+			engine, err := rp.NewRegexEngine("")
+			if err != nil {
+				t.Fatalf("Failed to compile regex: %s with error %v", "", err.Error())
+			}
+			for _, v := range tC.value {
+				err := engine.Reset(v.regex)
+				if err != nil {
+					t.Fatalf("Failed to compile regex: %s with error %v", v.regex, err.Error())
+				}
+				m, ok := engine.FindString(v.input)
+				if ok != v.isMatching || v.matching != m {
+					t.Fatalf("Failed => %s doesnt match with %s ::: %v == %v", m, v.matching, ok, v.isMatching)
+				}
+			}
+		})
+	}
+}
+
 func TestE2EMatchValue(t *testing.T) {
 	testMatch := []struct {
 		desc  string
@@ -30,6 +68,12 @@ func TestE2EMatchValue(t *testing.T) {
 				{
 					input:      "abab",
 					regex:      "ab+",
+					matching:   "ab",
+					isMatching: true,
+				},
+				{
+					input:      "xxabxx",
+					regex:      "ab",
 					matching:   "ab",
 					isMatching: true,
 				},
