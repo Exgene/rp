@@ -19,6 +19,10 @@ func (r RepeatPayload) IsStar() bool {
 	return r.Max == -1 && r.Min == 0
 }
 
+func (r RepeatPayload) IsCurly() bool {
+	return r.Max == -1 && r.Min >= 0
+}
+
 func (r RepeatPayload) IsPlus() bool {
 	return r.Max == -1 && r.Min == 1
 }

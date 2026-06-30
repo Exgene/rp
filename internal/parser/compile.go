@@ -1,6 +1,12 @@
 package parser
 
-import "slices"
+import (
+	"slices"
+)
+
+func (e *Engine) PrintNFA() {
+	e.nfa.Print()
+}
 
 func epsilonClosure(curStates []*state) []*state {
 	workingSet := []*state{}

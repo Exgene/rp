@@ -308,6 +308,21 @@ func (c *compiler) populateCurlyRepeatWithNFA(n *nfa, payload *lexer.RepeatPaylo
 		prev = inner
 	}
 
+	if payload.IsCurly() && prev != nil {
+		prev.end.transitions = append(prev.start.transitions, &transition{
+			edge: edge{
+				kind: edgeEpsilon,
+			},
+			state: n.start,
+		})
+
+		prev.end.transitions = append(prev.end.transitions, &transition{
+			edge:  edge{kind: edgeEpsilon},
+			state: n.end,
+		})
+		return nil
+	}
+
 	for i := payload.Min; i < payload.Max; i++ {
 		inner, err := c.buildNFA([]lexer.Token{payload.Token})
 		if err != nil {

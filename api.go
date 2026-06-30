@@ -28,6 +28,10 @@ func (rp *RegexParser) MatchString(matcherString string) bool {
 	return rp.engine.MatchString(matcherString)
 }
 
+func (rp *RegexParser) PrintNFA() {
+	rp.engine.PrintNFA()
+}
+
 func (rp *RegexParser) Pattern() string {
 	return rp.regexPattern
 }
