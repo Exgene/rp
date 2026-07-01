@@ -55,8 +55,18 @@ func (e *Engine) MatchString(matcher string) bool {
 
 		for _, s := range workingSet {
 			for _, e := range s.transitions {
-				if e.edge.kind == edgeLiteral && e.edge.ch == ch {
-					next = append(next, e.state)
+				switch e.edge.kind {
+				case edgeByte:
+					if e.edge.bitMap[ch/64]&(1<<(ch%64)) != 0 {
+						next = append(next, e.state)
+					}
+				case edgeLiteral:
+					if e.edge.ch == ch {
+						next = append(next, e.state)
+					}
+				case edgeEpsilon:
+				default:
+					panic("Should never happen")
 				}
 			}
 		}

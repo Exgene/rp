@@ -27,6 +27,8 @@ func (e edgeType) String() string {
 		return "{Epsillon}"
 	case edgeLiteral:
 		return "{Edge}"
+	case edgeByte:
+		return "{BitMap}"
 	default:
 		return "Unknown, This shouldn't happen"
 	}
@@ -35,11 +37,13 @@ func (e edgeType) String() string {
 const (
 	edgeLiteral edgeType = iota
 	edgeEpsilon edgeType = iota
+	edgeByte    edgeType = iota
 )
 
 type edge struct {
-	kind edgeType
-	ch   byte
+	kind   edgeType
+	ch     byte
+	bitMap [4]uint64
 }
 
 type nfa struct {
@@ -166,6 +170,10 @@ func (n nfa) Print() {
 				fmt.Printf("  --%s--> State %d\n", t.edge.kind.String(), t.state.id)
 			case edgeLiteral:
 				fmt.Printf("  --%c--> State %d\n", t.edge.ch, t.state.id)
+			case edgeByte:
+				for v := range t.edge.bitMap {
+					fmt.Printf("BitMask --[%d]--> State %d\n", v, t.state.id)
+				}
 			default:
 				// wont be reached ig?
 				fmt.Printf("UnknownType --> State %d\n", t.state.id)
@@ -188,12 +196,14 @@ func (c *compiler) handleTok(tok *lexer.Token, n *nfa) error {
 		if !ok {
 			return lexer.ErrExpectedValueShapeMismatch
 		}
+		var bm [4]uint64
 		for ch := range m {
-			n.start.transitions = append(n.start.transitions, &transition{
-				edge:  edge{kind: edgeLiteral, ch: byte(ch)},
-				state: n.end,
-			})
+			bm[ch/64] |= 1 << (ch % 64)
 		}
+		n.start.transitions = append(n.start.transitions, &transition{
+			edge:  edge{kind: edgeByte, bitMap: bm},
+			state: n.end,
+		})
 	case lexer.Group, lexer.GroupUncaptured:
 		tok, ok := tok.Value.([]lexer.Token)
 		if !ok {

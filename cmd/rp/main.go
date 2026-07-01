@@ -12,6 +12,8 @@ func main() {
 		panic("Error: " + err.Error())
 	}
 	fmt.Print(parser.MatchString("kausthubhjrao@gmail.com"))
+	fmt.Print(parser.MatchString("kausthubhjrao@gmail.co"))
+	fmt.Print(parser.MatchString("kausthubhjrao@gmail.o"))
 	// fmt.Print(parser.MatchString("b"))
 	// fmt.Print(parser.MatchString(""))
 }
