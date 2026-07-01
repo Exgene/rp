@@ -46,6 +46,8 @@ Now i will run some tests and figure out how to optimize this.
 
 ## Changelogs
 
+### Bitmask
+
 I implemented bitmask to speed up `[]` syntax. Because i used to generate all the values between the brackets and then connect them to multiple NFA objects. Instead i can have a single connection which is a bitmap which will tell me what values can pass through. Using simple math.
 
 `[4]uint64 bitMap`
@@ -79,7 +81,37 @@ ok  	command-line-arguments	5.601s
 go test -bench=. -benchtime=100000x ./tests/perf/test_naive_test.go  5.87s user 0.36s system 108% cpu 5.729 total
 ```
 
-We shaved off around 2s!!!!!
+We shaved off around 2.3s!!!!!
+
+### Remove uncessary allocations
+
+Basically slices like 
+
+- `next`
+- `workingSet`
+- `queue`
+- `seen` Map
+
+Needs to be allocated only once right? their size wont really change and only depends on the NFA constructed from the preCompiled Regex String, so we can put that as a fixed size.
+So we allocate only once and store them in `Engine` which may or may not be fine??? lets see.
+Then reuse them throughout our calculations. 
+
+While doing this i also noticed that `seen` need to be a dynamic map, it can be static sized array of max length `nextMsgId()`. Also because its a static array, memory friendly! cache lines! my previous blog post has not gone to waste!!!!!
+
+So i saved so much memory allocs there (which was happening for every single MatchString() call and reduced it to effectively 0.)
+
+```
+  󱞪 time go test -bench=. -benchtime=100000x ./tests/perf/test_naive_test.go
+goos: linux
+goarch: amd64
+cpu: AMD Ryzen 7 5800H with Radeon Graphics
+BenchmarkN-16    	  100000	     24402 ns/op
+PASS
+ok  	command-line-arguments	2.444s
+go test -bench=. -benchtime=100000x ./tests/perf/test_naive_test.go  2.70s user 0.25s system 111% cpu 2.656 total
+```
+
+Results? we saved around 3.2 more seconds! Our target is still far but we are not that shabby compared to the Go implementation! And we havent' done any systems level optimization.
 
 ---
 **No LLMS were used**

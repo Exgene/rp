@@ -8,61 +8,59 @@ func (e *Engine) PrintNFA() {
 	e.nfa.Print()
 }
 
-func epsilonClosure(curStates []*state) []*state {
-	workingSet := []*state{}
-	queue := []*state{}
-	// ugly go, ugly piece of code fs
-	seen := map[uint16]bool{}
+func (e *Engine) epsilonClosure(curStates []*state) {
+	e.queue = e.queue[:0]
+	e.workingSet = e.workingSet[:0]
+	clear(e.seen)
 
 	for _, c := range curStates {
-		if _, ok := seen[c.id]; !ok {
-			workingSet = append(workingSet, c)
-			queue = append(queue, c)
+		if ok := e.seen[c.id]; !ok {
+			e.workingSet = append(e.workingSet, c)
+			e.queue = append(e.queue, c)
 		}
-		seen[c.id] = true
+		e.seen[c.id] = true
 	}
 
-	clear(seen)
+	clear(e.seen)
 
-	for len(queue) != 0 {
-		poppedState := queue[0]
-		queue[0] = nil
-		queue = queue[1:]
+	for len(e.queue) != 0 {
+		poppedState := e.queue[0]
+		e.queue[0] = nil
+		e.queue = e.queue[1:]
 
-		if _, ok := seen[poppedState.id]; ok {
+		if ok := e.seen[poppedState.id]; ok {
 			continue
 		}
 
-		seen[poppedState.id] = true
+		e.seen[poppedState.id] = true
 
-		for _, e := range poppedState.transitions {
-			if e.edge.kind == edgeEpsilon {
-				workingSet = append(workingSet, e.state)
-				queue = append(queue, e.state)
+		for _, ed := range poppedState.transitions {
+			if ed.edge.kind == edgeEpsilon {
+				e.workingSet = append(e.workingSet, ed.state)
+				e.queue = append(e.queue, ed.state)
 			}
 		}
 	}
-
-	return workingSet
 }
 
 func (e *Engine) MatchString(matcher string) bool {
-	workingSet := epsilonClosure([]*state{e.nfa.start})
+	e.epsilonClosure([]*state{e.nfa.start})
+	e.next = e.next[:0]
 
 	for i := 0; i < len(matcher); i++ {
 		next := []*state{}
 		ch := matcher[i]
 
-		for _, s := range workingSet {
-			for _, e := range s.transitions {
-				switch e.edge.kind {
+		for _, s := range e.workingSet {
+			for _, ed := range s.transitions {
+				switch ed.edge.kind {
 				case edgeByte:
-					if e.edge.bitMap[ch/64]&(1<<(ch%64)) != 0 {
-						next = append(next, e.state)
+					if ed.edge.bitMap[ch/64]&(1<<(ch%64)) != 0 {
+						next = append(next, ed.state)
 					}
 				case edgeLiteral:
-					if e.edge.ch == ch {
-						next = append(next, e.state)
+					if ed.edge.ch == ch {
+						next = append(next, ed.state)
 					}
 				case edgeEpsilon:
 				default:
@@ -71,32 +69,33 @@ func (e *Engine) MatchString(matcher string) bool {
 			}
 		}
 
-		workingSet = epsilonClosure(next)
+		e.epsilonClosure(next)
 	}
 
-	return slices.Contains(workingSet, e.nfa.end)
+	return slices.Contains(e.workingSet, e.nfa.end)
 }
 
 func (e *Engine) FindPrefixMatch(start int, matcher string) (string, bool) {
-	workingSet := epsilonClosure([]*state{e.nfa.start})
+	e.epsilonClosure([]*state{e.nfa.start})
+	e.next = e.next[:0]
+
 	for end := start; end < len(matcher); end++ {
-		next := []*state{}
 		ch := matcher[end]
 
-		for _, s := range workingSet {
-			for _, e := range s.transitions {
-				if e.edge.kind == edgeLiteral && e.edge.ch == ch {
-					next = append(next, e.state)
+		for _, s := range e.workingSet {
+			for _, ed := range s.transitions {
+				if ed.edge.kind == edgeLiteral && ed.edge.ch == ch {
+					e.next = append(e.next, ed.state)
 				}
 			}
 		}
 
-		workingSet = epsilonClosure(next)
-		if len(workingSet) == 0 {
+		e.epsilonClosure(e.next)
+		if len(e.workingSet) == 0 {
 			break
 		}
 
-		if slices.Contains(workingSet, e.nfa.end) {
+		if slices.Contains(e.workingSet, e.nfa.end) {
 			return matcher[start : end+1], true
 		}
 	}

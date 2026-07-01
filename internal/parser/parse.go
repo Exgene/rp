@@ -65,6 +65,11 @@ func (c *compiler) next() uint16 {
 
 type Engine struct {
 	nfa *nfa
+
+	workingSet []*state
+	next       []*state
+	queue      []*state
+	seen       []bool
 }
 
 func Build(regex string) (*Engine, error) {
@@ -77,8 +82,14 @@ func Build(regex string) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	capacity := max(4, int(c.nextID))
+	seen := make([]bool, capacity)
 	return &Engine{
-		nfa: nfa,
+		nfa:        nfa,
+		workingSet: make([]*state, 0, capacity),
+		next:       make([]*state, 0, capacity),
+		queue:      make([]*state, 0, capacity),
+		seen:       seen,
 	}, nil
 }
 
